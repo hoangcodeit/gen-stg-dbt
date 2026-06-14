@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Output (generated files)
+output/
+
+# Input data (may contain sensitive data - add manually if needed)
+input/
+
+# OS
+.DS_Store
+Thumbs.db

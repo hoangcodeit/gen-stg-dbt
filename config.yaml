@@ -1,0 +1,39 @@
+# -------------------------------------------------------
+# Configuration for dbt staging layer generator
+# -------------------------------------------------------
+
+# FILE 1: Source tables + columns (actual DB structure)
+# Columns: table_name (e.g. dna_oaisbank_acct), column_name (e.g. acct_id)
+tables_file: input/tables.csv
+
+# Column headers inside tables_file
+tables_columns:
+  table_name: table_name
+  column_name: column_name
+
+# FILE 2: Data dictionary / metadata
+# Columns: ten_bang (e.g. acct), mo_ta_ten_bang, ten_truong, mo_ta_truong_du_lieu
+metadata_file: input/metadata.csv
+
+# Column headers inside metadata_file
+metadata_columns:
+  table_short_name: ten_bang
+  table_description: mo_ta_ten_bang
+  column_name: ten_truong
+  column_description: mo_ta_truong_du_lieu
+
+# CSV encoding options (applies to both files)
+csv_encoding: utf-8-sig   # utf-8-sig handles BOM from Excel-exported CSV
+csv_separator: ","
+
+# Excel sheet (only used if files are .xlsx)
+metadata_sheet: Sheet1
+
+# dbt source definition
+source:
+  name: dna
+  database: DNA_DB
+  schema: DNA_SCHEMA
+
+# Output directory
+output_dir: output
