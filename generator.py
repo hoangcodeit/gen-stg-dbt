@@ -104,12 +104,11 @@ def parse_table_name(full_name: str):
 
 def build_tables(tables_df: pd.DataFrame, metadata_df: pd.DataFrame) -> list[dict]:
     """
-    For each unique table_name in tables_df:
-      - parse domain + table_short
-      - get ordered columns from tables_df
-      - join with metadata_df on (table_short, column_name) to get descriptions
+    Build table list strictly following tables.csv row order.
+    Columns in SQL will appear in the exact same order as in tables.csv.
+    Descriptions are looked up from metadata.csv by (table_short, column_name).
     """
-    # metadata index: {table_short: {column_name: {table_desc, column_desc}}}
+    # Build metadata index: {table_short: {"_table_desc": str, "columns": {col_name: col_desc}}}
     meta_index = {}
     for _, row in metadata_df.iterrows():
         ts = row["table_short"]
@@ -117,33 +116,41 @@ def build_tables(tables_df: pd.DataFrame, metadata_df: pd.DataFrame) -> list[dic
             meta_index[ts] = {"_table_desc": row["table_desc"], "columns": {}}
         meta_index[ts]["columns"][row["column_name"]] = row["column_desc"]
 
+    # Use ordered dict to collect columns per table, preserving tables.csv row order
+    seen: dict[str, dict] = {}   # full_name -> table entry
+
+    for _, row in tables_df.iterrows():
+        full_name = row["table_name"]
+        col_name  = row["column_name"]
+
+        if full_name not in seen:
+            prefix, domain, table_short = parse_table_name(full_name)
+            if table_short is None:
+                continue
+            meta = meta_index.get(table_short)
+            if meta is None:
+                print(f"[WARN] No metadata entry for table_short='{table_short}' ('{full_name}')")
+            seen[full_name] = {
+                "full_name":   full_name,
+                "prefix":      prefix,
+                "domain":      domain,
+                "table_short": table_short,
+                "desc":        meta["_table_desc"] if meta else "",
+                "columns":     [],
+                "_meta":       meta,
+            }
+
+        meta = seen[full_name]["_meta"]
+        col_desc = meta["columns"].get(col_name, "") if meta else ""
+        if not col_desc:
+            print(f"[WARN] No description for column '{col_name}' in '{seen[full_name]['table_short']}'")
+        seen[full_name]["columns"].append({"name": col_name, "desc": col_desc})
+
+    # Strip internal _meta key before returning
     tables = []
-    for full_name, group in tables_df.groupby("table_name", sort=False):
-        prefix, domain, table_short = parse_table_name(full_name)
-        if table_short is None:
-            continue
-
-        meta = meta_index.get(table_short)
-        if meta is None:
-            print(f"[WARN] No metadata entry for table_short='{table_short}' ('{full_name}')")
-
-        table_desc = meta["_table_desc"] if meta else ""
-        columns = []
-        for _, row in group.iterrows():
-            col_name = row["column_name"]
-            col_desc = meta["columns"].get(col_name, "") if meta else ""
-            if not col_desc:
-                print(f"[WARN] No description for column '{col_name}' in '{table_short}'")
-            columns.append({"name": col_name, "desc": col_desc})
-
-        tables.append({
-            "full_name": full_name,
-            "prefix": prefix,
-            "domain": domain,
-            "table_short": table_short,
-            "desc": table_desc,
-            "columns": columns,
-        })
+    for entry in seen.values():
+        entry.pop("_meta", None)
+        tables.append(entry)
 
     return tables
 
